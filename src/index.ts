@@ -47,6 +47,26 @@ interface ModelProvider {
   models: string[];
 }
 
+/**
+ * Starts the Claude Code Router service
+ * 
+ * Initialize and starts a local server that routes AI model requests
+ * to configured model providers. It handles:
+ * 
+ * - Checking if the service is already running
+ * - Initializing configuration files and directories
+ * - Setting up model providers from config
+ * - Creating an HTTP server with appropriate middleware
+ * - Managing process lifecycle (PID tracking, signal handling)
+ * 
+ * The server acts as a proxy for AI model requests, routing them to the appropriate
+ * provider based on configuration rules.
+ * 
+ * @param {RunOptions} options - Configuration options
+ * @param {number} [options.port=3456] - Port to run the service on
+ * @param {string} [options.config] - Path to custom config file
+ * @returns {Promise<void>}
+ */
 async function run(options: RunOptions = {}) {
   // Check if service is already running
   if (isServiceRunning()) {
@@ -56,6 +76,8 @@ async function run(options: RunOptions = {}) {
 
   await initializeClaudeConfig();
   await initDir();
+
+  // Get router config, taking into account env vars and the --config option
   const config = await initConfig(options.config);
   printConfig(config, options.config);
 
@@ -82,6 +104,7 @@ async function run(options: RunOptions = {}) {
     return openai;
   }
 
+  // if the config has a "Providers" section
   if (Array.isArray(config.Providers)) {
     config.Providers.forEach((provider) => {
       try {
@@ -128,6 +151,8 @@ async function run(options: RunOptions = {}) {
     : port;
 
   const server = await createServer(servicePort);
+
+  // add middleware function (request hook) that passes our router config
   server.useMiddleware((req, res, next) => {
     console.log("Middleware triggered for request:", req.body.model);
     req.config = config;
@@ -139,8 +164,11 @@ async function run(options: RunOptions = {}) {
     config.Router?.think &&
     config?.Router?.longContext
   ) {
+    // Only use router if the model for each request type is present in config
+    // => see middlewares/router.ts for request routing to different models
     server.useMiddleware(router);
   } else {
+    // if not, use the default model for all requests
     server.useMiddleware((req, res, next) => {
       req.provider = "default";
       req.body.model = config.OPENAI_MODEL;
