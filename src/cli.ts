@@ -6,10 +6,28 @@ import { executeCodeCommand } from "./utils/codeCommand";
 import { cleanupPidFile, isServiceRunning } from "./utils/processCheck";
 import { version } from "../package.json";
 
-const command = process.argv[2];
+const parseArgs = () => {
+  const args = process.argv.slice(2);
+  const command = args[0];
+  const options: { config?: string; port?: number } = {};
+  
+  for (let i = 1; i < args.length; i++) {
+    if (args[i] === '--config' && i + 1 < args.length) {
+      options.config = args[i + 1];
+      i++; // Skip next argument as it's the config path
+    } else if (args[i] === '--port' && i + 1 < args.length) {
+      options.port = parseInt(args[i + 1]);
+      i++; // Skip next argument as it's the port number
+    }
+  }
+  
+  return { command, options };
+};
+
+const { command, options } = parseArgs();
 
 const HELP_TEXT = `
-Usage: claude-code [command]
+Usage: claude-code [command] [options]
 
 Commands:
   start         Start service 
@@ -19,8 +37,13 @@ Commands:
   -v, version   Show version information
   -h, help      Show help information
 
+Options:
+  --config      Specify custom config file path
+  --port        Specify port for service
+
 Example:
   claude-code start
+  claude-code start --config /path/to/config.json
   claude-code code "Write a Hello World"
 `;
 
@@ -50,7 +73,7 @@ import { existsSync, readFileSync } from "fs";
 async function main() {
   switch (command) {
     case "start":
-      run();
+      run(options);
       break;
     case "stop":
       try {

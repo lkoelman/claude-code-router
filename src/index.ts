@@ -1,6 +1,6 @@
 import { existsSync } from "fs";
 import { writeFile } from "fs/promises";
-import { getOpenAICommonOptions, initConfig, initDir } from "./utils";
+import { getOpenAICommonOptions, initConfig, initDir, printConfig } from "./utils";
 import { createServer } from "./server";
 import { formatRequest } from "./middlewares/formatRequest";
 import { rewriteBody } from "./middlewares/rewriteBody";
@@ -37,6 +37,7 @@ async function initializeClaudeConfig() {
 
 interface RunOptions {
   port?: number;
+  config?: string;
 }
 
 interface ModelProvider {
@@ -55,7 +56,8 @@ async function run(options: RunOptions = {}) {
 
   await initializeClaudeConfig();
   await initDir();
-  const config = await initConfig();
+  const config = await initConfig(options.config);
+  printConfig(config, options.config);
 
   const Providers = new Map<string, ModelProvider>();
   const providerCache = new LRUCache<string, OpenAI>({
